@@ -1,6 +1,6 @@
 {
-  "name": "tradingview-mcp",
-  "version": "1.0.0",
+  "name": "tradingview-mcp-jackson",
+  "version": "1.1.0",
   "description": "MCP bridge for TradingView Desktop via Chrome DevTools Protocol",
   "type": "module",
   "main": "src/server.js",
@@ -11,6 +11,9 @@
     ".": "./src/server.js",
     "./core": "./src/core/index.js"
   },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "start": "node src/server.js",
     "tv": "node src/cli/index.js",
@@ -20,11 +23,14 @@
     "test:cli": "node --test tests/cli.test.js",
     "test:all": "node --test tests/e2e.test.js tests/pine_analyze.test.js tests/cli.test.js",
     "test:verbose": "node --test --test-reporter=spec tests/e2e.test.js tests/pine_analyze.test.js",
-    "test:count": "node --test --test-reporter=spec tests/e2e.test.js 2>&1 | tail -5"
+    "test:count": "node --test --test-reporter=spec tests/e2e.test.js 2>&1 | tail -5",
+    "lint": "node --check src/server.js",
+    "health": "node src/cli/index.js health"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.1",
-    "chrome-remote-interface": "^0.33.2",
-    "dotenv": "^17.4.1"
+    "@modelcontextprotocol/sdk": "1.12.1",
+    "chrome-remote-interface": "0.33.2",
+    "dotenv": "^17.4.1",
+    "zod": "3.23.8"
   }
 }

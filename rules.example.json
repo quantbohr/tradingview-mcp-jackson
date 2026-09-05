@@ -1,31 +1,47 @@
 {
+  "_schema_version": 2,
+  "_note": "v2 schema: all conditions require numeric thresholds. The old bias_criteria string format is not valid here.",
   "watchlist": ["BTCUSD", "ETHUSD", "SOLUSD"],
   "default_timeframe": "240",
-
-  "bias_criteria": {
-    "bullish": [
-      "Ribbon direction is up (bullish colour)",
-      "Price is above the 20 EMA on the 4H",
-      "RSI is below 60 (room to run)"
-    ],
-    "bearish": [
-      "Ribbon direction is down (bearish colour)",
-      "Price is below the 20 EMA on the 4H",
-      "RSI is above 40 (room to drop)"
-    ],
-    "neutral": [
-      "Ribbon is flat or mixed",
-      "Price is chopping around the 20 EMA",
-      "RSI is between 45 and 55"
-    ]
-  },
-
-  "risk_rules": [
-    "Only take trades where R:R is at least 1:2",
-    "No trading in the first 15 minutes of the NY session open",
-    "Maximum 2 open positions at once",
-    "If I have 2 losing trades in a row, stop for the day"
+  "pass_gate": 0.6,
+  "conditions": [
+    {
+      "id": "rsi-not-overbought",
+      "description": "RSI below 60 — room to run",
+      "indicator": "Relative Strength Index",
+      "indicator_input": "RSI",
+      "timeframe": "240",
+      "operator": "<",
+      "threshold": 60,
+      "weight": 1.0
+    },
+    {
+      "id": "rsi-not-oversold",
+      "description": "RSI above 40 — room to drop",
+      "indicator": "Relative Strength Index",
+      "indicator_input": "RSI",
+      "timeframe": "240",
+      "operator": ">",
+      "threshold": 40,
+      "weight": 1.0
+    },
+    {
+      "id": "ema-20-above",
+      "description": "Price above 20 EMA on 4H",
+      "indicator": "Moving Average Exponential",
+      "indicator_input": "EMA",
+      "timeframe": "240",
+      "operator": ">",
+      "threshold": 0,
+      "value_transform": "price_vs_indicator_pct",
+      "weight": 1.5
+    }
   ],
-
-  "notes": "Add any other context you want Claude to factor in — e.g. macro events this week, key dates, anything that should affect your bias."
+  "risk_rules": [
+    { "id": "min-rr", "description": "R:R at least 1:2", "type": "display_only" },
+    { "id": "no-open-15m", "description": "No trades in first 15 min of NY session", "type": "display_only" },
+    { "id": "max-positions", "description": "Max 2 open positions", "type": "display_only" },
+    { "id": "drawdown-stop", "description": "Stop after 2 consecutive losses", "type": "display_only" }
+  ],
+  "session_notes": "Add macro context here — FOMC dates, key events, anything that should affect your bias."
 }

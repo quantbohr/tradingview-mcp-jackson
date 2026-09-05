@@ -53,6 +53,12 @@ export async function connect() {
       targetInfo = target;
       client = await CDP({ host: CDP_HOST, port: CDP_PORT, target: target.id });
 
+      // Clear client on disconnect so next call reconnects cleanly
+      client.on('disconnect', () => {
+        client = null;
+        targetInfo = null;
+      });
+
       // Enable required domains
       await client.Runtime.enable();
       await client.Page.enable();
@@ -90,6 +96,7 @@ export async function evaluate(expression, opts = {}) {
     expression,
     returnByValue: true,
     awaitPromise: opts.awaitPromise ?? false,
+    timeout: opts.timeout ?? 10000,
     ...opts,
   });
   if (result.exceptionDetails) {

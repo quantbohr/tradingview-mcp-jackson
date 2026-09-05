@@ -88,6 +88,14 @@ registerPaneTools(server);
 registerTabTools(server);
 registerMorningTools(server);
 
+// Keep the process alive — unhandled rejections must not kill the MCP server
+process.on('uncaughtException', (err) => {
+  process.stderr.write(`[tradingview-mcp] uncaughtException: ${err.message}\n`);
+});
+process.on('unhandledRejection', (reason) => {
+  process.stderr.write(`[tradingview-mcp] unhandledRejection: ${reason}\n`);
+});
+
 // Startup notice (stderr so it doesn't interfere with MCP stdio protocol)
 process.stderr.write(
   "⚠  tradingview-mcp  |  Unofficial tool. Not affiliated with TradingView Inc. or Anthropic.\n",
