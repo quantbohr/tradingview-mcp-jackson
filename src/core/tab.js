@@ -2,7 +2,7 @@
  * Core tab management logic.
  * Controls TradingView Desktop tabs via CDP and Electron keyboard shortcuts.
  */
-import { getClient, evaluate } from '../connection.js';
+import { getClient, evaluate, reconnectTo } from '../connection.js';
 
 const CDP_HOST = 'localhost';
 const CDP_PORT = 9222;
@@ -95,12 +95,28 @@ export async function switchTab({ index }) {
 
   const target = tabs.tabs[idx];
 
-  // Use CDP Target.activateTarget to bring the tab to front
+  // Use CDP Target.activateTarget to bring the tab to front (VISUAL only).
   try {
-    const resp = await fetch(`http://${CDP_HOST}:${CDP_PORT}/json/activate/${target.id}`);
-    const text = await resp.text();
-    return { success: true, action: 'switched', index: idx, tab_id: target.id, chart_id: target.chart_id };
+    await fetch(`http://${CDP_HOST}:${CDP_PORT}/json/activate/${target.id}`);
   } catch (e) {
     throw new Error(`Failed to activate tab ${idx}: ${e.message}`);
   }
+
+  // ⛔⛔ 2026-09-05 — THIS STEP WAS MISSING AND THE DOCSTRING ABOVE CLAIMED IT WAS HERE.
+  // /json/activate only fronts the tab in the UI. The cached CDP client stays bound to
+  // whichever target it attached to at first connect, so every subsequent read —
+  // chart_get_state, data_get_*, quote_get, screenshots — kept hitting the OLD chart
+  // while the user was looking at the new one. Nothing errors: you get real, correct-looking
+  // data for the wrong symbol, which is indistinguishable from "the chart didn't switch".
+  // ⭐ Re-attaching is what makes the READ follow the switch, not just the window.
+  try {
+    await reconnectTo(target.id);
+  } catch (e) {
+    // Loud on purpose: the tab may now be visually switched while reads still point
+    // elsewhere, and that mismatch must never be reported as success.
+    throw new Error(`Tab ${idx} was activated but CDP failed to re-attach to it — `
+      + `reads would still target the previous chart: ${e.message}`);
+  }
+
+  return { success: true, action: 'switched', index: idx, tab_id: target.id, chart_id: target.chart_id, reattached: true };
 }
