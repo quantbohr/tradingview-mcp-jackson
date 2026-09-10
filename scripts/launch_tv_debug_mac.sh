@@ -81,12 +81,28 @@ port_free() { ! lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; }
 # repo's own paths. $APP is the resolved MAIN binary; helpers live under
 # .../Frameworks/TradingView Helper.app/... and do not contain that substring, so this stays
 # pinned to the real main process(es), which is exactly what owns the single-instance lock.
-tv_gone() { ! pgrep -f "$APP" >/dev/null 2>&1; }
+# ⛔⛔⛔ 2026-09-09 — THE COMMENT ABOVE WAS RIGHT AND THE CODE BELOW IT WAS NOT. It warns "do not
+# match the bare string TradingView", and `tv_gone` duly pins to $APP — but the `pkill -f
+# "TradingView"` two lines down did exactly the forbidden thing, and `pgrep -f "$APP"` here is
+# still an UNANCHORED substring. Both match ANY process whose command line merely CONTAINS the
+# text. Measured that day: a peer Claude session's `/bin/zsh -c ...` (it was grepping for TV)
+# matched, with two consequences — `tv_gone` could never become true, so this launcher would burn
+# its whole graceful window, escalate to SIGKILL and abort "still present"; and the pkill would
+# have KILLED that unrelated process outright.
+# ⭐ Anchoring with ^ fixes both: a real TV process's command line STARTS with its path.
+# ⭐ Derived from $APP (never hardcoded /Applications) because $APP may resolve under ~/Applications.
+#   Only `.` needs escaping for ERE in these paths.
+TV_MAIN_RE="^$(printf '%s' "$APP"                 | sed 's/\./\\./g')"      # the main binary
+TV_APP_RE="^$(printf '%s' "${APP%/Contents/MacOS/*}" | sed 's/\./\\./g')/"  # the whole bundle
+# ⛔ tv_gone stays pinned to the MAIN process: it is what owns the single-instance lock, and that
+# is the condition this launcher must wait on. The KILL below is deliberately broader (whole
+# bundle) so no helper survives — verified to match all 20 real TV procs and nothing else.
+tv_gone() { ! pgrep -f "$TV_MAIN_RE" >/dev/null 2>&1; }
 
 # The field is clear only when BOTH hold. Either one alone is a documented failure mode.
 field_clear() { tv_gone && port_free; }
 
-pkill -f "TradingView" 2>/dev/null
+pkill -f "$TV_APP_RE" 2>/dev/null
 for i in $(seq 1 20); do            # up to ~10s of graceful shutdown
   field_clear && break
   sleep 0.5
@@ -94,7 +110,7 @@ done
 
 if ! field_clear; then
   echo "TradingView process and/or port $PORT still present after graceful kill — escalating to SIGKILL"
-  pkill -9 -f "TradingView" 2>/dev/null
+  pkill -9 -f "$TV_APP_RE" 2>/dev/null
   for i in $(seq 1 20); do          # up to another ~10s
     field_clear && break
     sleep 0.5
